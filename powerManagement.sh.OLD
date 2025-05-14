@@ -1,0 +1,117 @@
+#!/bin/env bash
+
+# Copyright Alexey Vasilchenko, 20250512
+# The script should be running by UDEV, triggering on power adapter connect \ disconnect events.
+# As an extra option it can change Lenovo Battery conservation mode setting.
+
+# TODO
+# - desktop notifications. It's complicated by root user under which udev strating the script.
+#	you should determine  some dbus and session IDs vefore you can send desktop notification under root.
+# - add environment zeroing and other best practices for safe start
+# - check this with shellcheck
+# - add autodetection of sys files
+# - (?) when we're on AC and the battery is reached 75% reqest a user if they wants to switch to conservation mode
+#	this probably require an additional UDEV rule tho
+# - check if all required packages are availbel (e.g powertop)
+
+# UDEV rule e.g.
+#99-powersaving.rules
+#ACTION=="change", KERNEL=="ACAD", SUBSYSTEM=="power_supply", ATTR{online}=="1", RUN+="/usr/local/sbin/powerManagement.sh AC"
+#ACTION=="change", KERNEL=="ACAD", SUBSYSTEM=="power_supply", ATTR{online}=="0", RUN+="/usr/local/sbin/powerManagement.sh BAT"
+
+set -e  # Exit on error
+
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root"
+    exit 1
+fi
+
+##############################################################################################################################
+# Configuration
+##############################################################################################################################
+tag=$(basename "$0") # define selfname for logging
+
+CMFile="/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode"
+CMStatus=$(cat $CMFile)
+
+
+ppdSavingProfile="balanced" # can be performance balanced power-saver
+ppdPerfProfile="performance" # can be performance balanced power-saver
+energyPerfPref="balance_power" # can be default performance balance_performance balance_power power
+
+##############################################################################################################################
+# Messages
+##############################################################################################################################
+logACDone="Power adapter plugged in. High power settings successfully applied"
+logBATDone="Power adapter plugged out. Battery power saving mode successfully applied."
+logCMOn="The Battery conservation mode successfully activated"
+logCMOff="The Battery conservation mode successfully disactivated"
+logNoArgs="The script should be called with proper arguments. Please use AC, BAT or CM on\off."
+logCMOffUsage="Battery Conservation mode is switched OFF now. Please use the script with proper arguments."
+echoCMOffUsage="Battery Conservation mode is switched OFF now. Please use \n\n \
+             		sudo $tag CM on \n\n or \n\n sudo $tag CM off \n\n respectively to change the setting"
+logCMOnUsage="Battery Conservation mode is switched ON now. Please use the script with proper arguments."
+echoCMOnUsage=" Battery Conservation mode is switched ON now. Please use \n\n sudo $tag CM on \n\n \
+                          or \n\n sudo $tag CM off \n\n respectively to change the setting"
+##############################################################################################################################
+
+consoleLog () { echo -e $1; }
+log () { logger -p $1 -i -t $tag $2; }
+ppdProfileSet () { powerprofilesctl set $1; }
+CMApply  () { echo $1 | tee $CMFile 2>1 1>/dev/null; }
+PowerTopApply () { powertop -q --auto-tune 2>1 1>/dev/null; }
+EPPApply () { echo $1 | tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference  2>1 1>/dev/null; }
+
+# Checking first argument started with
+case "$1" in
+
+# Unleash the beast!
+  AC)
+	ppdProfileSet $ppdPerfProfile && \
+	log notice "$logACDone"
+    ;;
+
+# Be more humble on enegry consuming
+  BAT)
+	ppdProfileSet $ppdSavingProfile && \
+	EPPApply $energyPerfPref && \
+	PowerTopApply && \
+	log notice "$logBATDone"
+    ;;
+
+# Conservation Mode
+    CM)
+    # Checking the secong argument started with
+
+	case "$2" in
+		on)
+			CMApply 1 && \
+		    log notice "$logCMOn" && \
+		    consoleLog "$logCMOn"
+		  ;;
+
+		off)
+			CMApply 0 && \
+			log notice "$logCMOff" && \
+			consoleLog "$logCMOff"
+		  ;;
+		# A tiny help for a user
+		*)
+			if [ $CMStatus -eq 0 ]; then
+	  		 log warn "$logCMOffUsage" && \
+			 consoleLog "$echoCMOffUsage";
+			else
+			 log warn "$logCMOnUsage" && \
+			 consoleLog "$echoCMOnUsage";
+			fi
+		 ;;
+	esac
+	;;
+
+	*)
+    # Sorry bro, but we need some valid arguments to start
+	log err "$logNoArgs"
+	consoleLog "$logNoArgs"
+    exit 1
+    ;;
+esac
