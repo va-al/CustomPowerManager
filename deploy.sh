@@ -176,7 +176,8 @@ show_usage () {
     echo "  tests      Run tests to verify installation"
     echo "  uninstall  Remove power management tools"
     echo "  clean      Remove backup files from working directory"
-    echo
+    echo "  all        Use GOD Mode"
+    echo 
 }
 
 # Main script execution
@@ -187,6 +188,7 @@ case  "${1-help}" in
     install)
         check_files
         install_files
+        run_tests
         ;;
     tests)
         run_tests
@@ -195,6 +197,12 @@ case  "${1-help}" in
         uninstall_files
         ;;
     clean)
+        clean_backups
+        ;;
+    all)
+        check_files
+        install_files
+        run_tests
         clean_backups
         ;;
     *)
