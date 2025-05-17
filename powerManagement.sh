@@ -41,9 +41,9 @@ CMFile="/sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode"
 # Defince current battery conservation status
 CMStatus=$(cat "$CMFile")
 
-ppdSavingProfile="balanced" # can be performance balanced power-saver
+ppdSavingProfile="power-saver" # can be performance balanced power-saver
 ppdPerfProfile="performance" # can be performance balanced power-saver
-energyPerfPref="balance_power" # can be default performance balance_performance balance_power power
+energyPerfPref="power" # can be default performance balance_performance balance_power power
 
 ##############################################################################################################################
 # Messages Configuration
@@ -52,7 +52,7 @@ logACDone="✓ Power adapter has been plugged in. High power settings successful
 logBATDone="✓ Power adapter has been plugged out. Battery power saving mode successfully applied."
 logCMOn="✓ The Battery conservation mode successfully ON"
 logCMOff="✓ The Battery conservation mode successfully OFF"
-logNoArgs="⚠ This script should be called with proper arguments. Please use AC, BAT or CM on\\off."
+logNoArgs="⚠ This script should be called with proper arguments. Please use AC, BAT, CP or CM on\\off."
 logCMOffUsage="⚠ Battery Conservation mode is switched OFF now. Please use the script with proper arguments."
 echoCMOffUsage="⚠ Battery Conservation mode is switched OFF now. Please use \\n\\n \
              sudo $tag CM on \\n\\n or \\n\\n sudo $tag CM off \\n\\n respectively to change the setting"
@@ -60,6 +60,10 @@ logCMOnUsage="⚠ Battery Conservation mode is switched ON now. Please use the s
 echoCMOnUsage=" ⚠ Battery Conservation mode is switched ON now. Please use \\n\\n sudo $tag CM on \\n\\n \
                 or \\n\\n sudo $tag CM off \\n\\n respectively to change the setting"
 ##############################################################################################################################
+
+ScalingGovernor="None"
+EPP="None" 
+PlatformProfile="None"
 
 # Check resources availability
 if [[ ! -f "$CMFile" ]]; then
@@ -121,6 +125,21 @@ EPPApply() {
     return 0
 }
 
+# Read the current settings from /sys/
+checkProfilesNow () {
+        if ! read ScalingGovernor EPP PlatformProfile < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
+             $(cat /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference | uniq) \
+             $(cat /sys/firmware/acpi/platform_profile)"); then
+        log "err" "⚠ Failed to read current settings from /sys"
+        return 1
+    fi
+    echo -e "✓ Scaling governor is \033[1m$ScalingGovernor\033[0m now"
+    echo -e "✓ Energy Performance setting is \033[1m$EPP\033[0m now"
+    echo -e "✓ Platform Profile is \033[1m$PlatformProfile\033[0m now"
+    return 0
+
+}
+
 # Validate input arguments
 if [[ $# -lt 1 ]]; then
     log "err" "$logNoArgs"
@@ -134,6 +153,7 @@ case "$1" in
     "AC")
         if ppdProfileSet "$ppdPerfProfile"; then
             log "notice" "$logACDone"
+            checkProfilesNow
         fi
         ;;
 
@@ -144,6 +164,7 @@ case "$1" in
         PowerTopApply || true # this is a dirty hack to handle err when you start powertop with an almost empty ENV.
         # Powertop works correctly, although it returns err exit code
         log "notice" "$logBATDone"
+        checkProfilesNow
         ;;
 
     # Conservation Mode
@@ -174,7 +195,10 @@ case "$1" in
                 ;;
         esac
         ;;
-
+    
+    "CP")
+        checkProfilesNow
+        ;;
     *)
         # Sorry bro, but we need some valid arguments to start
         log "err" "$logNoArgs"
