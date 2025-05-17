@@ -62,8 +62,9 @@ echoCMOnUsage=" ⚠ Battery Conservation mode is switched ON now. Please use \\n
 ##############################################################################################################################
 
 ScalingGovernor="None"
-EPP="None" 
+EPP="None"
 PlatformProfile="None"
+ConservationStatus=0
 
 # Check resources availability
 if [[ ! -f "$CMFile" ]]; then
@@ -127,15 +128,21 @@ EPPApply() {
 
 # Read the current settings from /sys/
 checkProfilesNow () {
-        if ! read ScalingGovernor EPP PlatformProfile < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
+        if ! read ScalingGovernor EPP PlatformProfile ConservationStatus < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
              $(cat /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference | uniq) \
-             $(cat /sys/firmware/acpi/platform_profile)"); then
+             $(cat /sys/firmware/acpi/platform_profile) \
+             $(cat /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode)"); then
         log "err" "⚠ Failed to read current settings from /sys"
         return 1
-    fi
+        fi
     echo -e "✓ Scaling governor is \033[1m$ScalingGovernor\033[0m now"
     echo -e "✓ Energy Performance setting is \033[1m$EPP\033[0m now"
     echo -e "✓ Platform Profile is \033[1m$PlatformProfile\033[0m now"
+        if [[ ConservationStatus -eq 1 ]]; then
+            echo -e "✓ Battery Conservation mode is switched \033[1mON\033[0m now"
+        else
+            echo -e "✓ Battery Conservation mode is switched \033[1mOFF\033[0m now"
+        fi
     return 0
 
 }
@@ -195,7 +202,7 @@ case "$1" in
                 ;;
         esac
         ;;
-    
+
     "CP")
         checkProfilesNow
         ;;
