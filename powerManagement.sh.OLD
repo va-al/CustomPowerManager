@@ -1,6 +1,6 @@
 #!/bin/env bash
 
-# Copyright Alexey Vasilchenko, 20250512
+# Copyright vaal, 2025
 # The script should be running by UDEV, triggering on power adapter connect \ disconnect events.
 # As an extra option it can change Lenovo Battery conservation mode setting.
 
