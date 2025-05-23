@@ -24,11 +24,6 @@ set -o pipefail  # Exit if any command in a pipe fails
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 IFS=$' \t\n'
 
-# Check for root privileges
-if [[ $EUID -ne 0 ]]; then
-    echo "This script must be run as root" >&2
-    exit 1
-fi
 
 ##############################################################################################################################
 # Configuration
@@ -59,6 +54,7 @@ echoCMOffUsage="⚠ Battery Conservation mode is switched OFF now. Please use \\
 logCMOnUsage="⚠ Battery Conservation mode is switched ON now. Please use the script with proper arguments."
 echoCMOnUsage=" ⚠ Battery Conservation mode is switched ON now. Please use \\n\\n sudo $tag CM on \\n\\n \
                 or \\n\\n sudo $tag CM off \\n\\n respectively to change the setting"
+logNoRoot="⚠ This script should be run as root."
 ##############################################################################################################################
 
 ScalingGovernor="None"
@@ -84,6 +80,14 @@ done
 # Function definitions with proper quoting and error handling
 consoleLog() { echo -e "$1"; }
 log() { logger -p "$1" -i -t "$tag" "$2"; }
+
+checkIfRoot() {
+    if [[ $EUID -ne 0 ]]; then
+        log "err" "$logNoRoot"
+        consoleLog "$logNoRoot"
+        exit 1
+    fi
+}
 
 ppdProfileSet() {
     if ! powerprofilesctl set "$1" &>/dev/null; then
@@ -158,14 +162,15 @@ fi
 case "$1" in
     # Unleash the beast!
     "AC")
-        if ppdProfileSet "$ppdPerfProfile"; then
-            log "notice" "$logACDone"
-            checkProfilesNow
-        fi
+        checkIfRoot
+        ppdProfileSet "$ppdPerfProfile"
+        log "notice" "$logACDone"
+        checkProfilesNow
         ;;
 
     # Let's be more humble on energy consuming
     "BAT")
+        checkIfRoot
         ppdProfileSet "$ppdSavingProfile" && \
         EPPApply "$energyPerfPref" && \
         PowerTopApply || true # this is a dirty hack to handle err when you start powertop with an almost empty ENV.
@@ -179,12 +184,14 @@ case "$1" in
         # Validate second argument
         case "${2:-}" in
             "on")
+                checkIfRoot
                 CMApply 1 && \
                 log "notice" "$logCMOn" && \
                 consoleLog "$logCMOn"
                 ;;
 
             "off")
+                checkIfRoot
                 CMApply 0 && \
                 log "notice" "$logCMOff" && \
                 consoleLog "$logCMOff"
