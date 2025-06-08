@@ -121,7 +121,7 @@ EPPApply() {
 
 # Read the current settings from /sys/
 checkProfilesNow () {
-        if ! read ScalingGovernor EPP PlatformProfile ConservationStatus < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
+        if ! read -r ScalingGovernor EPP PlatformProfile ConservationStatus < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
              $(cat /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference | uniq) \
              $(cat /sys/firmware/acpi/platform_profile) \
              $(cat /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode)"); then
