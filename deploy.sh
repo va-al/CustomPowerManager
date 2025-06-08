@@ -11,6 +11,7 @@ UDEV_RULE_SRC="./99-powersaving.rules"
 UDEV_RULE_DEST="/etc/udev/rules.d/99-powersaving.rules"
 SCRIPT_SRC="./powerManagement.sh"
 SCRIPT_DEST="/usr/local/sbin/powerManagement.sh"
+SYMLINK_DEST="/usr/local/bin/pm"
 UDEV_RULE_BAK="./99-powersaving.rules.bak"
 SCRIPT_BAK="./powerManagement.sh.bak"
 
@@ -78,6 +79,16 @@ install_files() {
     chmod 755 "$SCRIPT_DEST"
     echo "✓ Script installed: $(ls -l "$SCRIPT_DEST")"
 
+    # Create symlink
+    echo "Creating pm symlink..."
+    if [[ -L "$SYMLINK_DEST" ]]; then
+        rm -f "$SYMLINK_DEST"
+        echo "Removed existing symlink"
+    fi
+    ln -s "$SCRIPT_DEST" "$SYMLINK_DEST"
+    chown -h root:root "$SYMLINK_DEST"
+    echo "✓ Symlink created: $(ls -l "$SYMLINK_DEST")"
+
     echo "Installation complete!"
 }
 
@@ -110,6 +121,32 @@ run_tests() {
         fi
     fi
 
+    # Test symlink
+    if [[ ! -L "$SYMLINK_DEST" ]]; then
+        echo "⚠ pm symlink not created"
+        missing=1
+    else
+        echo "✓ pm symlink exists"
+        
+        # Check if symlink points to correct target
+        local link_target
+        link_target=$(readlink "$SYMLINK_DEST")
+        if [[ "$link_target" == "$SCRIPT_DEST" ]]; then
+            echo "✓ pm symlink points to correct target"
+        else
+            echo "⚠ pm symlink points to wrong target: $link_target"
+            missing=1
+        fi
+
+        # Test if symlink is functional
+        if [[ -x "$SYMLINK_DEST" ]]; then
+            echo "✓ pm symlink is executable"
+        else
+            echo "⚠ pm symlink is not executable"
+            missing=1
+        fi
+    fi
+
     # Add more tests as needed
 
     if [[ $missing -eq 1 ]]; then
@@ -138,6 +175,14 @@ uninstall_files() {
         echo "✓ Power management script removed"
     else
         echo "Power management script not found, nothing to remove"
+    fi
+
+    # Remove symlink
+    if [[ -L "$SYMLINK_DEST" ]]; then
+        rm -f "$SYMLINK_DEST"
+        echo "✓ pm symlink removed"
+    else
+        echo "pm symlink not found, nothing to remove"
     fi
 
     echo "Uninstallation complete!"
