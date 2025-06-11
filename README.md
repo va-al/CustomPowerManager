@@ -3,6 +3,23 @@ Set of scripts for custom power settings and battery conservation. The scripts a
 
 Copyright Vaal 2025
 
+## Dependencies
+
+This project requires the following tools to be installed on your system:
+
+- `powerprofilesctl`
+- `powertop`
+- `logger`
+- Bash shell
+
+You can install them on most distributions with:
+
+```bash
+sudo apt install powerprofilesctl powertop bsdutils bash
+```
+
+**Note:** These scripts require Bash. Please ensure you are running them with Bash, not sh or another shell.
+
 The script should be running by UDEV, triggering by power adapter connect \ disconnect events.
 As an bonus option it can change Lenovo Battery conservation mode setting.
 
@@ -23,10 +40,16 @@ This will install:
 
 After installation, you can run the power management script in two ways:
 
-1. **Direct execution**: `/usr/local/sbin/powerManagement.sh [AC|BAT]`
-2. **Using symlink**: `pm [AC|BAT]` (available from anywhere in the system)
+1. **Direct execution**: `/usr/local/sbin/powerManagement.sh [AC|BAT|CM|CP]`
+2. **Using symlink**: `pm [AC|BAT|CM|CP]` (available from anywhere in the system)
 
 The script will be automatically triggered by UDEV when power adapter events occur.
+
+### Additional Commands
+
+- `pm CM on` — Enable Lenovo Battery Conservation Mode.
+- `pm CM off` — Disable Lenovo Battery Conservation Mode.
+- `pm CP` — Show current power and battery conservation settings.
 
 ## Deployment Script Commands
 

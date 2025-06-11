@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 # Power Management Deployment Script
 # Version: 1.0
 # Description: Installs power management tools including UDEV rules and management script
@@ -16,6 +16,7 @@ UDEV_RULE_BAK="./99-powersaving.rules.bak"
 SCRIPT_BAK="./powerManagement.sh.bak"
 
 # Function to check if running as root
+# Exits if not running as root.
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         echo "Error: This script must be run as root" >&2
@@ -24,6 +25,7 @@ check_root() {
 }
 
 # Function to check if source files exist
+# Exits if required source files are missing.
 check_files() {
     local missing=0
 
@@ -43,6 +45,7 @@ check_files() {
 }
 
 # Function to install files
+# Backs up existing files, installs new files atomically, sets permissions, and creates symlink.
 install_files() {
     echo "Installing power management tools..."
 
@@ -57,11 +60,9 @@ install_files() {
         echo "Backed up existing script to $SCRIPT_BAK"
     fi
 
-    # Install UDEV rule
+    # Install UDEV rule atomically with correct permissions and ownership
     echo "Installing UDEV rule..."
-    cp "$UDEV_RULE_SRC" "$UDEV_RULE_DEST"
-    chown root:root "$UDEV_RULE_DEST"
-    chmod 644 "$UDEV_RULE_DEST"
+    install -m 644 -o root -g root "$UDEV_RULE_SRC" "$UDEV_RULE_DEST"
     echo "✓ UDEV rule installed: $(ls -l "$UDEV_RULE_DEST")"
 
     # Reload UDEV rules
@@ -72,11 +73,9 @@ install_files() {
         echo "⚠ Failed to reload UDEV rules. Please check manually."
     fi
 
-    # Install management script
+    # Install management script atomically with correct permissions and ownership
     echo "Installing power management script..."
-    cp "$SCRIPT_SRC" "$SCRIPT_DEST"
-    chown root:root "$SCRIPT_DEST"
-    chmod 755 "$SCRIPT_DEST"
+    install -m 755 -o root -g root "$SCRIPT_SRC" "$SCRIPT_DEST"
     echo "✓ Script installed: $(ls -l "$SCRIPT_DEST")"
 
     # Create symlink
@@ -93,6 +92,7 @@ install_files() {
 }
 
 # Function to run tests
+# Verifies installation and permissions of all components.
 run_tests() {
     echo "Running tests..."
 
@@ -158,6 +158,7 @@ run_tests() {
 }
 
 # Function to uninstall files
+# Removes installed files and symlink.
 uninstall_files() {
     echo "Uninstalling power management tools..."
 
@@ -189,6 +190,7 @@ uninstall_files() {
 }
 
 # Function to clean up backup files
+# Removes backup files from working directory.
 clean_backups() {
     echo "Cleaning up backup files..."
 

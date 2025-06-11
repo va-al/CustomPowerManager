@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
 # Copyright Vaal, 2025
 # The script should be running by UDEV, triggering by power adapter connect \ disconnect events.
@@ -67,9 +67,13 @@ for cmd in powerprofilesctl powertop logger; do
 done
 
 # Function definitions with proper quoting and error handling
+# Print a message to the console, supporting escape sequences.
 consoleLog() { echo -e "$1"; }
+
+# Log a message to syslog with the specified priority and tag.
 log() { logger -p "$1" -i -t "$tag" "$2"; }
 
+# Ensure the script is running as root, otherwise exit.
 checkIfRoot() {
     if [[ $EUID -ne 0 ]]; then
         log "err" "$logNoRoot"
@@ -78,6 +82,7 @@ checkIfRoot() {
     fi
 }
 
+# Set the power profile using powerprofilesctl.
 ppdProfileSet() {
     if ! powerprofilesctl set "$1" &>/dev/null; then
         log "err" "⚠ Failed to set power profile to $1"
@@ -86,6 +91,7 @@ ppdProfileSet() {
     return 0
 }
 
+# Apply battery conservation mode by writing to the sysfs interface.
 CMApply() {
     if ! echo "$1" > "$CMFile" 2>/dev/null; then
         log "err" "⚠ Failed to set conservation mode to $1"
@@ -94,6 +100,7 @@ CMApply() {
     return 0
 }
 
+# Apply powertop auto-tune optimizations.
 PowerTopApply() {
         if ! powertop -q --auto-tune &>/dev/null; then
         log "err" "⚠ Failed to apply powertop optimizations"
@@ -102,6 +109,7 @@ PowerTopApply() {
     return 0
 }
 
+# Set the energy performance preference for all CPUs.
 EPPApply() {
     local success=true
     for epp_file in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
@@ -119,7 +127,7 @@ EPPApply() {
     return 0
 }
 
-# Read the current settings from /sys/
+# Read and display the current power and battery conservation settings from sysfs.
 checkProfilesNow () {
         if ! read -r ScalingGovernor EPP PlatformProfile ConservationStatus < <(echo "$(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq) \
              $(cat /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference | uniq) \
@@ -160,6 +168,8 @@ case "$1" in
     # Let's be more humble on energy consuming
     "BAT")
         checkIfRoot
+        # shellcheck disable=SC2015
+        # SC2015 suppressed: powertop returns non-zero even on success, so we ignore its exit code intentionally.
         ppdProfileSet "$ppdSavingProfile" && \
         EPPApply "$energyPerfPref" && \
         PowerTopApply || true # this is a dirty hack to handle err when you start powertop with an almost empty ENV.
